@@ -18,7 +18,6 @@ import {
   FileSearch,
 } from "lucide-react";
 
-
 // Define API base URL - change this based on where your backend is hosted
 const API_BASE_URL = "http://localhost:5000";
 
@@ -27,6 +26,8 @@ export default function Cobol() {
   const [targetLanguage, setTargetLanguage] = useState("Java");
   const [sourceCode, setSourceCode] = useState("");
   const [convertedCode, setConvertedCode] = useState("");
+  const [vsamCode, setVsamCode] = useState("");
+  const [showVsam, setShowVsam] = useState(false);
   const [unitTests, setUnitTests] = useState("");
   const [functionalTests, setFunctionalTests] = useState("");
   const [businessRequirements, setBusinessRequirements] = useState("");
@@ -39,6 +40,7 @@ export default function Cobol() {
   const [isBackendAvailable, setIsBackendAvailable] = useState(true);
   const [activeRequirementsTab, setActiveRequirementsTab] = useState("business");
   const [activeOutputTab, setActiveOutputTab] = useState("code");
+  const [activeEditor, setActiveEditor] = useState('cobol');
 
   // State for technical requirements
   const [technicalRequirementsList, setTechnicalRequirementsList] = useState([]);
@@ -488,6 +490,7 @@ export default function Cobol() {
 
   const handleReset = () => {
     setSourceCode("");
+    setVsamCode("");
     setConvertedCode("");
     setUnitTests("");
     setFunctionalTests("");
@@ -612,99 +615,7 @@ export default function Cobol() {
     setTechnicalRequirementsList(updatedRequirements);
   };
 
-  const handleGenerateTests = async () => {
-    // Clear any previous errors
-    setError("");
-  
-    // Validate inputs
-    if (!convertedCode.trim()) {
-      setError("No converted code available to generate tests");
-      return;
-    }
-  
-    setIsLoading(true);
-  
-    try {
-      // If backend is unavailable, use simulated data
-      if (!isBackendAvailable) {
-        setTimeout(() => {
-          setUnitTests(
-            `// Unit Tests for ${targetLanguage}\n\nimport org.junit.Test;\nimport static org.junit.Assert.*;\n\npublic class AccountProcessorTest {\n    \n    @Test\n    public void testProcessTransaction() {\n        // Test setup\n        AccountProcessor processor = new AccountProcessor();\n        Transaction tx = new Transaction();\n        tx.setAmount(100.00);\n        \n        // Execute\n        processor.processTransaction(tx);\n        \n        // Verify\n        // This is simulated test code\n        assertTrue(true);\n    }\n}`
-          );
-          
-          setFunctionalTests(
-            `# Functional Test Cases\n\n## Test Scenario 1: Valid Transaction Processing\n\n### Acceptance Criteria:\n- System should process a valid transaction\n- Account balance should be updated correctly\n- Audit log should contain transaction details\n\n### Test Steps:\n1. Input a valid transaction with amount $100.00\n2. Verify account balance is updated\n3. Check audit log for transaction record`
-          );
-          
-          setIsLoading(false);
-          setActiveOutputTab("unit-tests");
-        }, 1500);
-        return;
-      }
-  
-      // Call the backend API for test generation
-      const response = await fetch(`${API_BASE_URL}/api/generate-tests`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          targetLanguage,
-          convertedCode,
-          businessRequirements,
-          technicalRequirements,
-        }),
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Test generation failed");
-      }
-  
-      const data = await response.json();
-      
-      // Handle unit tests
-      if (typeof data.unitTests === 'string') {
-        setUnitTests(data.unitTests);
-      } else if (data.unitTestDetails && data.unitTestDetails.unitTestCode) {
-        setUnitTests(data.unitTestDetails.unitTestCode);
-      } else {
-        setUnitTests("// No unit tests were generated");
-      }
-      
-      // Handle functional tests
-      if (data.functionalTests) {
-        let formattedFunctionalTests = "# Functional Test Cases\n\n";
-        
-        if (Array.isArray(data.functionalTests.functionalTests)) {
-          // If it's in the expected array format
-          data.functionalTests.functionalTests.forEach((test, index) => {
-            formattedFunctionalTests += `## Test Scenario ${index + 1}: ${test.title}\n\n`;
-            formattedFunctionalTests += `### Test ID: ${test.id}\n\n`;
-            formattedFunctionalTests += `### Steps:\n`;
-            test.steps.forEach((step, stepIndex) => {
-              formattedFunctionalTests += `${stepIndex + 1}. ${step}\n`;
-            });
-            formattedFunctionalTests += `\n### Expected Result:\n${test.expectedResult}\n\n`;
-          });
-        } else {
-          // Fallback if it's another format
-          formattedFunctionalTests = JSON.stringify(data.functionalTests, null, 2);
-        }
-        
-        setFunctionalTests(formattedFunctionalTests);
-      } else {
-        setFunctionalTests("# No functional tests were generated");
-      }
-      
-      setActiveOutputTab("unit-tests");
-    } catch (error) {
-      console.error("Error during test generation:", error);
-      setError(error.message || "Failed to generate tests. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   // Render the appropriate tab content
   const renderTabContent = () => {
@@ -713,11 +624,33 @@ export default function Cobol() {
         return (
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-2 px-4 py-2 bg-gray-800 rounded-md text-white">
-                <FileText size={18} className="text-teal-400" />
+              <button
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition 
+    ${activeEditor === 'cobol'
+                    ? 'bg-teal-600 text-white border border-transparent'
+                    : 'bg-transparent text-black border border-black hover:bg-teal-500 hover:text-white'}`}
+                onClick={() => setActiveEditor('cobol')}
+              >
+                <FileText size={18} className={`${activeEditor === 'cobol' ? 'text-white' : 'text-black'}`} />
                 <span className="font-medium">COBOL</span>
-              </div>
-              <label className="flex items-center bg-gray-800 hover:bg-gray-700 text-teal-400 rounded px-3 py-2 text-sm transition duration-200 cursor-pointer mr-2">
+              </button>
+
+              <button
+                className={`flex items-center px-4 py-2 rounded transition duration-200 
+    ${activeEditor === 'vsam'
+                    ? 'bg-teal-600 text-white border border-transparent'
+                    : 'bg-transparent text-black border border-black hover:bg-teal-500 hover:text-white'}`}
+                onClick={() => {
+                  setActiveEditor('vsam');
+                  setShowVsam(true);
+                }}
+              >
+                <FileCode size={16} className={`${activeEditor === 'vsam' ? 'text-white' : 'text-black'} mr-2`} />
+                <span>VSAM Definition</span>
+              </button>
+
+
+              <label className="flex items-center bg-white hover:bg-gray-50 text-gray-900 rounded px-3 py-2 text-sm transition duration-200 cursor-pointer mr-2 border border-black">
                 <Upload size={16} className="mr-2" />
                 <span>Upload File</span>
                 <input
@@ -727,31 +660,34 @@ export default function Cobol() {
                   accept=".txt,.cob,.cobol,.cbl"
                 />
               </label>
+
               <div className="dropdown relative">
                 <button
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-md text-white transition duration-200"
+                  className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-50 rounded-md text-gray-900 transition duration-200 border border-black"
                   onClick={() => setShowDropdownTarget(!showDropdownTarget)}
                 >
-                  <span className="w-5 h-5 flex items-center justify-center text-teal-400">
-                    {targetLanguages.find(
-                      (lang) => lang.name === targetLanguage
-                    )?.icon || "☕"}
+                  <span className="w-5 h-5 flex items-center justify-center text-teal-600">
+                    {targetLanguages.find(lang => lang.name === targetLanguage)?.icon || ""}
                   </span>
                   <span className="font-medium">{targetLanguage}</span>
                   <span className="ml-2">▼</span>
                 </button>
+
                 {showDropdownTarget && (
-                  <div className="absolute mt-1 w-48 bg-gray-800 rounded-md shadow-lg border border-gray-700 z-10">
+                  <div className="absolute mt-1 w-48 bg-white rounded-md shadow-lg border border-black z-10">
                     {targetLanguages.map((lang) => (
                       <button
                         key={lang.name}
-                        className="block w-full text-left px-4 py-2 hover:bg-gray-700 text-white"
+                        className="block w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-900"
                         onClick={() => {
                           setTargetLanguage(lang.name);
                           setShowDropdownTarget(false);
                         }}
                       >
-                        <span className="mr-2">{lang.icon}</span> {lang.name}
+                        <span className="inline-block w-5 text-center mr-2">
+                          {lang.icon}
+                        </span>
+                        {lang.name}
                       </button>
                     ))}
                   </div>
@@ -759,18 +695,19 @@ export default function Cobol() {
               </div>
             </div>
 
-            <div className="bg-gray-800 rounded-lg border border-gray-700 h-96 overflow-hidden">
-              <div className="flex items-center bg-gray-900 px-4 py-2 border-b border-gray-700">
-                <span className="text-green-400 font-medium">
-                  Source Code (COBOL)
+            {/* Main Editor - shows either COBOL or VSAM depending on activeEditor */}
+            <div className="bg-white rounded-lg border border-gray-900 h-96 overflow-hidden">
+              <div className="flex items-center bg-gray-100 px-4 py-2 border-b border-gray-200">
+                <span className="text-black-400 font-medium">
+                  {activeEditor === 'cobol' ? 'Source Code (COBOL)' : 'VSAM Definition'}
                 </span>
               </div>
               <div className="p-2 h-full overflow-auto scrollbar-hide">
                 <div className="flex">
                   {/* Line numbers */}
-                  <div className="pr-2 text-right min-w-8 text-gray-500 select-none font-mono text-sm border-r border-gray-700 mr-2">
+                  <div className="pr-2 text-right min-w-8 text-gray-500 select-none font-mono text-sm border-r border-gray-200 mr-2">
                     {Array.from(
-                      { length: Math.max(sourceCode.split("\n").length, 1) },
+                      { length: Math.max((activeEditor === 'cobol' ? sourceCode : vsamCode).split("\n").length, 1) },
                       (_, i) => (
                         <div key={i} className="h-6">
                           {i + 1}
@@ -780,11 +717,17 @@ export default function Cobol() {
                   </div>
                   {/* Code editor */}
                   <textarea
-                    className="w-full bg-transparent text-gray-300 resize-none focus:outline-none p-0 font-mono text-sm leading-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
-                    placeholder="// Enter your COBOL code here"
-                    value={sourceCode}
+                    className="w-full bg-transparent text-gray-900 resize-none focus:outline-none p-0 font-mono text-sm leading-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+                    placeholder={activeEditor === 'cobol'
+                      ? "// Enter your COBOL code here"
+                      : "// Enter your VSAM definition here"}
+                    value={activeEditor === 'cobol' ? sourceCode : vsamCode}
                     onChange={(e) => {
-                      setSourceCode(e.target.value);
+                      if (activeEditor === 'cobol') {
+                        setSourceCode(e.target.value);
+                      } else {
+                        setVsamCode(e.target.value);
+                      }
                     }}
                     style={{
                       overflow: "hidden",
@@ -798,7 +741,7 @@ export default function Cobol() {
 
             <div className="flex justify-center space-x-6">
               <button
-                className="bg-gray-800 hover:bg-gray-700 text-white font-medium px-6 py-3 rounded-lg transition duration-200"
+                className="bg-white hover:bg-gray-100 text-gray-900 font-medium px-6 py-3 rounded-lg transition duration-200 border border-black"
                 onClick={handleReset}
               >
                 <div className="flex items-center">
@@ -809,11 +752,13 @@ export default function Cobol() {
               <button
                 className={`${
                   isGeneratingRequirements
-                    ? "bg-teal-700"
+                  ? "bg-teal-600"
                     : "bg-teal-600 hover:bg-teal-500"
                 } text-white font-medium px-8 py-3 rounded-lg transition duration-200 min-w-36`}
                 onClick={handleGenerateRequirements}
-                disabled={isGeneratingRequirements || !sourceCode.trim()}
+                disabled={isGeneratingRequirements ||
+                  (activeEditor === 'cobol' && !sourceCode.trim()) ||
+                  (activeEditor === 'vsam' && !vsamCode.trim())}
               >
                 {isGeneratingRequirements ? (
                   <div className="flex items-center justify-center">
@@ -830,47 +775,50 @@ export default function Cobol() {
             </div>
           </div>
         );
+
+
         case "requirements":
           return (
             <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center">
-                  <button
-                    className={`px-4 py-2 ${
-                      activeRequirementsTab === "business"
-                        ? "bg-teal-600 text-white"
-                        : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                    } rounded-t-lg transition duration-200`}
-                    onClick={() => setActiveRequirementsTab("business")}
-                  >
-                    <div className="flex items-center">
-                      <ClipboardList size={16} className="mr-2" />
-                      Business Requirements
-                    </div>
-                  </button>
-                  <button
-                    className={`px-4 py-2 ${
-                      activeRequirementsTab === "technical"
-                        ? "bg-teal-600 text-white"
-                        : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                    } rounded-t-lg transition duration-200 ml-2`}
-                    onClick={() => setActiveRequirementsTab("technical")}
-                  >
-                    <div className="flex items-center">
-                      <ClipboardList size={18} className="mr-2" />
-                      Technical Requirements
-                    </div>
-                  </button>
-                  
-                  {/* Requirements tab buttons - moved to the right */}
-                                 {/* Requirements tab buttons */}
-                <div className="flex justify-end space-x-2 ml-[300px] ">
+              <div className="flex justify-between items-center">
+                <div className="flex space-x-2">
+                <button
+  className={`px-4 py-2 border border-black rounded-lg transition duration-200 ${
+    activeRequirementsTab === "business"
+      ? "bg-teal-600 text-white"
+      : "bg-white text-gray-900 hover:bg-gray-100"
+  }`}
+  onClick={() => setActiveRequirementsTab("business")}
+>
+  <div className="flex items-center">
+    <ClipboardList size={16} className="mr-2" />
+    Business Requirements
+  </div>
+</button>
+
+<button
+  className={`px-4 py-2 border border-black rounded-lg transition duration-200 ${
+    activeRequirementsTab === "technical"
+      ? "bg-teal-600 text-white"
+      : "bg-white text-gray-900 hover:bg-gray-100"
+  }`}
+  onClick={() => setActiveRequirementsTab("technical")}
+>
+  <div className="flex items-center">
+    <ClipboardList size={16} className="mr-2" />
+    Technical Requirements
+  </div>
+</button>
+
+                </div>
+
+                <div className="flex space-x-2">
                   <button
                     className={`flex items-center ${
                       copyStatus
-                        ? "bg-teal-700"
-                        : "bg-transparent hover:bg-teal-500"
-                    } text-white rounded px-4 py-2 text-sm transition duration-200 border border-white  ${
+                      ? "bg-teal-600"
+                      : "bg-gray-600"
+                    } text-white rounded px-4 py-2 text-sm transition duration-200 border border-white ${
                       !businessRequirements && !technicalRequirements
                         ? "opacity-50 cursor-not-allowed"
                         : ""
@@ -891,7 +839,7 @@ export default function Cobol() {
                     )}
                   </button>
                   <button
-                    className={`flex items-center bg-transparent hover:bg-teal-500 text-white rounded px-3 py-2 text-sm transition duration-200 border border-white ${
+                    className={`flex items-center bg-gray-600 text-white rounded px-4 py-2 text-sm transition duration-200 border border-white ${
                       !businessRequirements && !technicalRequirements
                         ? "opacity-50 cursor-not-allowed"
                         : ""
@@ -899,17 +847,16 @@ export default function Cobol() {
                     disabled={!businessRequirements && !technicalRequirements}
                     onClick={handleDownloadRequirements}
                   >
-                    <Download size={16} className="mr-1 text-white" />
+                    <Download size={16} className="mr-2" />
                     <span>Download</span>
                   </button>
                 </div>
               </div>
-            </div>
         
-              <div className="bg-gray-800 rounded-lg border border-teal-500 shadow-md shadow-teal-500/20" style={{ height: "28rem" }}>
+              <div className="bg-white rounded-lg border border-gray-900" style={{ height: "28rem" }}>
                 {activeRequirementsTab === "business" ? (
                   <div className="p-4 h-full overflow-auto scrollbar-hide">
-                    <div className="markdown-content text-gray-300 whitespace-pre-wrap">
+                    <div className="markdown-content text-gray-900 whitespace-pre-wrap">
                       {businessRequirements ? (
                         <div className="space-y-2">
                           {businessRequirements.split("\n").map((line, index) => {
@@ -918,7 +865,7 @@ export default function Cobol() {
                               return (
                                 <h1
                                   key={index}
-                                  className="text-2xl font-bold text-teal-300 mt-4 mb-2 border-b border-teal-700 pb-1"
+                                  className="text-2xl font-bold text-gray-900 mt-4 mb-2 border-b border-teal-500 pb-1"
                                 >
                                   {line.replace("# ", "")}
                                 </h1>
@@ -928,7 +875,7 @@ export default function Cobol() {
                               return (
                                 <h1
                                   key={index}
-                                  className="text-2xl font-bold text-teal-300 mt-4 mb-2 border-b border-teal-700 pb-1"
+                                  className="text-2xl font-bold text-gray-900 mt-4 mb-2 border-b border-teal-500 pb-1"
                                 >
                                   {line.replace("###**", "")}
                                 </h1>
@@ -940,7 +887,7 @@ export default function Cobol() {
                               return (
                                 <h4
                                   key={index}
-                                  className="text-lg font-semibold text-teal-200 mt-3 mb-2"
+                                  className="text-lg font-semibold text-gray-900 mt-3 mb-2"
                                 >
                                   {line.replace("## ", "")}
                                 </h4>
@@ -952,7 +899,7 @@ export default function Cobol() {
                               return (
                                 <p
                                   key={index}
-                                  className="text-gray-300 font-normal mb-2"
+                                  className="text-gray-900 font-normal mb-2"
                                 >
                                   {line.replace("###", "").trim()}
                                 </p>
@@ -975,7 +922,7 @@ export default function Cobol() {
                                   if (currentText) {
                                     // Add accumulated text with appropriate styling
                                     parts.push(
-                                      <span key={`${index}-${currentIndex}`} className={isBold ? "font-bold text-teal-200" : "font-normal"}>
+                                      <span key={`${index}-${currentIndex}`} className={isBold ? "font-bold text-gray-900" : "font-normal"}>
                                         {currentText}
                                       </span>
                                     );
@@ -992,7 +939,7 @@ export default function Cobol() {
                               // Add any remaining text
                               if (currentText) {
                                 parts.push(
-                                  <span key={`${index}-${currentIndex}`} className={isBold ? "font-bold text-teal-200" : "font-normal"}>
+                                  <span key={`${index}-${currentIndex}`} className={isBold ? "font-bold text-gray-900" : "font-normal"}>
                                     {currentText}
                                   </span>
                                 );
@@ -1003,8 +950,8 @@ export default function Cobol() {
                                   key={index}
                                   className="flex items-start mb-2"
                                 >
-                                  <span className="text-teal-400 mr-2 mt-0.5">•</span>
-                                  <span className="text-gray-300">
+                                  <span className="text-teal-600 mr-2 mt-0.5">•</span>
+                                  <span className="text-gray-900">
                                     {parts}
                                   </span>
                                 </div>
@@ -1029,7 +976,7 @@ export default function Cobol() {
                                 if (currentText) {
                                   // Add accumulated text with appropriate styling
                                   parts.push(
-                                    <span key={`${index}-${currentIndex}`} className={isBold ? "font-bold text-teal-200" : "font-normal"}>
+                                    <span key={`${index}-${currentIndex}`} className={isBold ? "font-bold text-gray-900" : "font-normal"}>
                                       {currentText}
                                     </span>
                                   );
@@ -1046,14 +993,14 @@ export default function Cobol() {
                             // Add any remaining text
                             if (currentText) {
                               parts.push(
-                                <span key={`${index}-${currentIndex}`} className={isBold ? "font-bold text-teal-200" : "font-normal"}>
+                                <span key={`${index}-${currentIndex}`} className={isBold ? "font-bold text-gray-900" : "font-normal"}>
                                   {currentText}
                                 </span>
                               );
                             }
         
                             return (
-                              <p key={index} className="text-gray-300">
+                              <p key={index} className="text-gray-900">
                                 {parts}
                               </p>
                             );
@@ -1075,7 +1022,7 @@ export default function Cobol() {
                 ) : (
                   <div className="p-4 h-full overflow-auto scrollbar-hide">
                     <div className="border-b border-teal-500 pb-2 mb-2">
-                      <h2 className="text-xl font-semibold text-teal-400">
+                        <h2 className="text-xl font-semibold text-gray-900">
                         Technical Requirements
                       </h2>
                     </div>
@@ -1085,13 +1032,13 @@ export default function Cobol() {
                         {technicalRequirementsList.map((req, index) => (
                           <div
                             key={index}
-                            className="flex items-start p-2 border-b border-gray-700 hover:bg-gray-700 rounded"
+                            className="flex items-start p-2 border-b border-gray-200 hover:bg-gray-100 rounded"
                           >
-                            <span className="mr-2 text-teal-400">•</span>
-                            <p className="flex-grow text-gray-300">{req.text}</p>
+                            <span className="mr-2 text-teal-600">•</span>
+                            <p className="flex-grow text-gray-900">{req.text}</p>
                             <div className="flex space-x-1 ml-2">
                               <button
-                                className="p-1 text-teal-400 hover:text-teal-300"
+                                className="p-1 text-teal-600 hover:text-teal-500"
                                 onClick={() => handleEditRequirement(index)}
                                 title="Edit"
                               >
@@ -1131,17 +1078,17 @@ export default function Cobol() {
         
               <div className="flex justify-center space-x-6 mt-4">
                 <button
-                  className="bg-gray-800 hover:bg-gray-700 text-white font-medium px-6 py-3 rounded-lg transition duration-200"
+                  className="bg-white hover:bg-gray-100 text-gray-900 font-medium px-6 py-3 rounded-lg transition duration-200 border border-black"
                   onClick={() => setActiveTab("input")}
                 >
                   <div className="flex items-center">
-                    <FileCode size={18} className="mr-2 text-teal-400" />
+                    <FileCode size={18} className="mr-2 text-teal-600" />
                     Back to Code
                   </div>
                 </button>
                 <button
                   className={`${
-                    isLoading ? "bg-teal-700" : "bg-teal-600 hover:bg-teal-500"
+                    isLoading ? "bg-teal-600" : "bg-teal-600 hover:bg-teal-500"
                   } text-white font-medium px-8 py-3 rounded-lg transition duration-200 min-w-36`}
                   onClick={handleConvert}
                   disabled={isLoading}
@@ -1172,7 +1119,7 @@ export default function Cobol() {
                       className={`px-4 py-2 ${
                         activeOutputTab === "code"
                           ? "bg-teal-600 text-white"
-                          : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                        : "bg-white text-gray-900 hover:bg-gray-100 border border-black"
                       } rounded-lg transition duration-200`}
                       onClick={() => setActiveOutputTab("code")}
                     >
@@ -1185,7 +1132,7 @@ export default function Cobol() {
                       className={`px-4 py-2 ${
                         activeOutputTab === "unit-tests"
                           ? "bg-teal-600 text-white"
-                          : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                        : "bg-white text-gray-900 hover:bg-gray-100 border border-black"
                       } rounded-lg transition duration-200`}
                       onClick={() => setActiveOutputTab("unit-tests")}
                     >
@@ -1198,7 +1145,7 @@ export default function Cobol() {
                       className={`px-4 py-2 ${
                         activeOutputTab === "functional-tests"
                           ? "bg-teal-600 text-white"
-                          : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                        : "bg-white text-gray-900 hover:bg-gray-100 border border-black"
                       } rounded-lg transition duration-200`}
                       onClick={() => setActiveOutputTab("functional-tests")}
                     >
@@ -1214,9 +1161,9 @@ export default function Cobol() {
                     <button
                       className={`flex items-center ${
                         copyStatus
-                          ? "bg-teal-700"
-                          : "bg-transparent hover:bg-teal-500"
-                      } text-white rounded px-4 py-2 text-sm transition duration-200 border border-white ${
+                        ? "bg-teal-600"
+                        : "bg-gray-600"
+                      } text-white rounded px-4 py-2 text-sm transition duration-200 border border-white hover:bg-teal-500 ${
                         !convertedCode ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                       onClick={handleCopyCode}
@@ -1235,7 +1182,7 @@ export default function Cobol() {
                       )}
                     </button>
                     <button
-                      className={`flex items-center bg-transparent hover:bg-teal-500 text-white rounded px-3 py-2 text-sm transition duration-200 border border-white ${
+                      className={`flex items-center bg-gray-600 hover:bg-teal-500 text-white rounded px-3 py-2 text-sm transition duration-200 border border-white ${
                         !convertedCode ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                       disabled={!convertedCode}
@@ -1244,22 +1191,12 @@ export default function Cobol() {
                       <Download size={16} className="mr-1 text-white" />
                       <span>Download</span>
                     </button>
-                    <button
-                      className={`flex items-center bg-transparent hover:bg-teal-500 text-white rounded px-3 py-2 text-sm transition duration-200 border border-white ${
-                        isLoading || !convertedCode.trim() ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                      onClick={handleGenerateTests}
-                      disabled={isLoading || !convertedCode.trim()}
-                    >
-                      <TestTube size={16} className="mr-1 text-white" />
-                      <span>Generate Tests</span>
-                    </button>
                   </div>
                 </div>
           
-                <div className="bg-gray-800 rounded-lg border border-teal-500 h-96 overflow-hidden shadow-md shadow-teal-500/20">
-                  <div className="flex items-center bg-gray-900 px-4 py-2 border-b border-gray-700">
-                    <span className="text-green-400 font-medium">
+                <div className="bg-white rounded-lg border border-gray-900 h-96 overflow-hidden shadow-md shadow-teal-500/20">
+                  <div className="flex items-center bg-gray-100 px-4 py-2 border-b border-gray-200">
+                    <span className="text-gray-900 font-medium">
                       {activeOutputTab === "code"
                         ? `Converted Code (${targetLanguage})`
                         : activeOutputTab === "unit-tests"
@@ -1270,14 +1207,14 @@ export default function Cobol() {
                   <div className="p-2 h-full overflow-auto scrollbar-hide">
                     {activeOutputTab === "functional-tests" ? (
                       // Render functional tests with markdown styling
-                      <div className="text-gray-300 font-mono text-sm w-full">
+                      <div className="text-gray-900 font-mono text-sm w-full">
                         {functionalTests.split("\n").map((line, index) => {
                           // Main section headers (#)
                           if (line.trim().startsWith("# ")) {
                             return (
                               <h1
                                 key={index}
-                                className="text-2xl font-bold text-teal-300 mt-4 mb-2 border-b border-teal-700 pb-1"
+                                className="text-2xl font-bold text-gray-900 mt-4 mb-2 border-b border-teal-500 pb-1"
                               >
                                 {line.replace("# ", "")}
                               </h1>
@@ -1287,7 +1224,7 @@ export default function Cobol() {
                             return (
                               <h1
                                 key={index}
-                                className="text-2xl font-bold text-teal-300 mt-4 mb-2 border-b border-teal-700 pb-1"
+                                className="text-2xl font-bold text-gray-900 mt-4 mb-2 border-b border-teal-500 pb-1"
                               >
                                 {line.replace("###**", "")}
                               </h1>
@@ -1299,7 +1236,7 @@ export default function Cobol() {
                             return (
                               <h4
                                 key={index}
-                                className="text-lg font-semibold text-teal-200 mt-3 mb-2"
+                                className="text-lg font-semibold text-gray-900 mt-3 mb-2"
                               >
                                 {line.replace("## ", "")}
                               </h4>
@@ -1311,7 +1248,7 @@ export default function Cobol() {
                             return (
                               <p
                                 key={index}
-                                className="text-gray-300 font-normal mb-2"
+                                className="text-gray-900 font-normal mb-2"
                               >
                                 {line.replace("###", "").trim()}
                               </p>
@@ -1320,7 +1257,7 @@ export default function Cobol() {
           
                           // Regular text (everything else)
                           return (
-                            <p key={index} className="text-gray-300 mb-1 whitespace-pre-wrap">
+                            <p key={index} className="text-gray-900 mb-1 whitespace-pre-wrap">
                               {line}
                             </p>
                           );
@@ -1330,7 +1267,7 @@ export default function Cobol() {
                       // For code and unit tests, keep the original display with line numbers
                       <div className="flex">
                         {/* Line numbers */}
-                        <div className="pr-2 text-right min-w-8 text-gray-500 select-none font-mono text-sm border-r border-gray-700 mr-2">
+                          <div className="pr-2 text-right min-w-8 text-gray-500 select-none font-mono text-sm border-r border-gray-200 mr-2">
                           {Array.from(
                             {
                               length: Math.max(
@@ -1348,7 +1285,7 @@ export default function Cobol() {
                           )}
                         </div>
                         {/* Code content */}
-                        <pre className="text-gray-300 font-mono text-sm whitespace-pre leading-6 w-full">
+                          <pre className="text-gray-900 font-mono text-sm whitespace-pre leading-6 w-full">
                           {activeOutputTab === "code"
                             ? convertedCode
                             : unitTests}
@@ -1360,16 +1297,16 @@ export default function Cobol() {
           
                 <div className="flex justify-center space-x-6">
                   <button
-                    className="bg-gray-800 hover:bg-gray-700 text-white font-medium px-6 py-3 rounded-lg transition duration-200"
+                    className="bg-white hover:bg-gray-100 text-gray-900 font-medium px-6 py-3 rounded-lg transition duration-200 border border-black"
                     onClick={() => setActiveTab("requirements")}
                   >
                     <div className="flex items-center">
-                      <ClipboardList size={18} className="mr-2 text-teal-400" />
+                      <ClipboardList size={18} className="mr-2 text-teal-600" />
                       View Requirements
                     </div>
                   </button>
                   <button
-                    className="bg-gray-800 hover:bg-gray-700 text-white font-medium px-6 py-3 rounded-lg transition duration-200"
+                    className="bg-white hover:bg-gray-100 text-gray-900 font-medium px-6 py-3 rounded-lg transition duration-200 border border-black"
                     onClick={handleReset}
                   >
                     <div className="flex items-center">
@@ -1393,18 +1330,18 @@ export default function Cobol() {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-2/3 max-w-2xl border border-teal-500">
-          <h3 className="text-lg font-medium mb-4 text-white">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-2/3 max-w-2xl border border-teal-500">
+          <h3 className="text-lg font-medium mb-4 text-gray-900">
             Edit Requirement
           </h3>
           <textarea
-            className="w-full border border-gray-600 rounded p-2 mb-4 h-32 bg-gray-700 text-white"
+            className="w-full border border-teal-200 rounded p-2 mb-4 h-32 bg-white text-gray-900"
             value={editingRequirementText}
             onChange={(e) => setEditingRequirementText(e.target.value)}
           />
           <div className="flex justify-end space-x-2">
             <button
-              className="px-4 py-2 bg-gray-700 text-gray-300 rounded hover:bg-gray-600"
+              className="px-4 py-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
               onClick={() => {
                 setEditingRequirementIndex(null);
                 setEditingRequirementText("");
@@ -1425,17 +1362,17 @@ export default function Cobol() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-teal-700 to-black p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#f0fffa] text-gray-900">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center items-center mb-4">
-            <Code2 size={40} className="text-teal-400 mr-3" />
-            <h1 className="text-4xl font-bold text-white">
+            <Code2 size={40} className="text-teal-600 mr-3" />
+            <h1 className="text-4xl font-bold text-gray-900">
               COBOL Code Converter
             </h1>
           </div>
-          <p className="text-xl text-gray-300">
+          <p className="text-xl text-gray-600">
             Transform COBOL code to Java or C# with AI precision
           </p>
           {!isBackendAvailable && (
@@ -1455,79 +1392,72 @@ export default function Cobol() {
         )}
 
         {/* Tabs */}
-        <div className="flex justify-center mb-6">
-          <div className="flex bg-gray-800 rounded-lg p-1">
-            <button
-              className={`flex items-center px-4 py-2 rounded-md ${
-                activeTab === "input"
-                  ? "bg-teal-600 text-white"
-                  : "text-gray-400 hover:text-white"
-              } transition duration-200`}
-              onClick={() => setActiveTab("input")}
-            >
-              <FileCode size={18} className="mr-2" />
-              Input Code
-            </button>
-            <button
-              className={`flex items-center px-4 py-2 rounded-md ${
-                activeTab === "requirements"
-                  ? "bg-teal-600 text-white"
-                  : "text-gray-400 hover:text-white"
-              } transition duration-200 mx-1`}
-              onClick={() => setActiveTab("requirements")}
-              disabled={!businessRequirements && !technicalRequirements}
-            >
-              <ClipboardList size={18} className="mr-2" />
-              Requirements
-            </button>
-            <button
-              className={`flex items-center px-4 py-2 rounded-md ${
-                activeTab === "output"
-                  ? "bg-teal-600 text-white"
-                  : "text-gray-400 hover:text-white"
-              } transition duration-200`}
-              onClick={() => setActiveTab("output")}
-              disabled={!convertedCode}
-            >
-              <FileCode size={18} className="mr-2" />
-              Output
-            </button>
-          </div>
+        <div className="flex space-x-4 mb-4">
+          <button
+            onClick={() => setActiveTab("input")}
+            className={`px-4 py-2 rounded-lg flex items-center ${activeTab === "input"
+                ? "bg-teal-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-black"
+              }`}
+          >
+            <FileText size={20} className="mr-2" />
+            Input
+          </button>
+          <button
+            onClick={() => setActiveTab("requirements")}
+            className={`px-4 py-2 rounded-lg flex items-center ${activeTab === "requirements"
+                ? "bg-teal-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-black"
+              }`}
+          >
+            <ClipboardList size={20} className="mr-2" />
+            Requirements
+          </button>
+          <button
+            onClick={() => setActiveTab("output")}
+            className={`px-4 py-2 rounded-lg flex items-center ${activeTab === "output"
+                ? "bg-teal-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-black"
+              }`}
+          >
+            <FileCode size={20} className="mr-2" />
+            Output
+          </button>
         </div>
 
         {/* Main converter container */}
-        <div className="bg-gray-900 rounded-xl border border-teal-500 shadow-lg shadow-teal-500/20 p-6">
+        <div className="bg-white rounded-xl border border-gray-900 shadow-lg shadow-teal-500/20 p-6">
           {renderTabContent()}
         </div>
 
         {/* Feature highlights */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gray-900 bg-opacity-70 p-4 rounded-lg border border-gray-800">
-            <div className="text-green-400 mb-2 flex items-center">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="text-teal-600 mb-2 flex items-center">
               <RefreshCw size={20} className="mr-2" />
               <h3 className="text-lg font-medium">COBOL Conversion</h3>
             </div>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-600 text-sm">
               Instantly transform your legacy COBOL code to modern Java or C#
               with AI assistance.
             </p>
           </div>
-          <div className="bg-gray-900 bg-opacity-70 p-4 rounded-lg border border-gray-800">
-            <div className="text-green-400 mb-2 flex items-center">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="text-teal-600 mb-2 flex items-center">
               <ClipboardList size={20} className="mr-2" />
               <h3 className="text-lg font-medium">Requirements Analysis</h3>
             </div>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-600 text-sm">
               Automatically extract business and technical requirements from
               your COBOL code.
             </p>
           </div>
-          <div className="bg-gray-900 bg-opacity-70 p-4 rounded-lg border border-gray-800">
-            <div className="text-green-400 mb-2 flex items-center">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="text-teal-600 mb-2 flex items-center">
               <Download size={20} className="mr-2" />
               <h3 className="text-lg font-medium">Easy Export</h3>
             </div>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-600 text-sm">
               Download or copy your converted code with a single click for
               seamless workflow integration.
             </p>
